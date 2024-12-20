@@ -1,1 +1,1 @@
-# Muti-vendor
+# Multi-vendor
