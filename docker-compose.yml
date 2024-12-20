@@ -1,0 +1,113 @@
+# version: '3.7'
+
+services:
+  api_gateway:
+    build: ./api_gateway
+    ports:
+      - "5000:5000"
+    environment:
+      AUTH_SERVICE_DB_URL: postgres://postgres:FOOJOI1997@postgres:5432/auth_service_db
+      PRODUCT_SERVICE_DB_URL: postgres://postgres:FOOJOI1997@postgres:5432/product_service_db
+      ORDER_SERVICE_DB_URL: postgres://postgres:FOOJOI1997@postgres:5432/order_service_db
+      NOTIFICATION_SERVICE_DB_URL: postgres://postgres:FOOJOI1997@postgres:5432/notification_service_db
+    depends_on:
+      - postgres
+      - auth_service
+      - product_service
+      - order_service
+      - notification_service
+    networks:
+      - app_network
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app_network
+
+  auth_service:
+    build: ./auth_service
+    ports:
+      - "5001:5001"
+    environment:
+      DATABASE_URL: postgres://postgres:FOOJOI1997@postgres:5432/auth_service_db
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - app_network
+
+  product_service:
+    build: ./product_service
+    ports:
+      - "5002:5002"
+    environment:
+      DATABASE_URL: postgres://postgres:FOOJOI1997@postgres:5432/product_service_db
+    depends_on:
+      - postgres
+    networks:
+      - app_network
+
+  order_service:
+    build: ./order_service
+    ports:
+      - "5003:5003"
+    environment:
+      DATABASE_URL: postgres://postgres:FOOJOI1997@postgres:5432/order_service_db
+    depends_on:
+      - postgres
+    networks:
+      - app_network
+
+  notification_service:
+    build: ./notification_service
+    ports:
+      - "5004:5004"
+    environment:
+      DATABASE_URL: postgres://postgres:FOOJOI1997@postgres:5432/notification_service_db
+    depends_on:
+      - rabbitmq
+    networks:
+      - app_network
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: FOOJOI1997
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+    networks:
+      - app_network
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "15672:15672"  # RabbitMQ Web Management UI
+      - "5672:5672"    # AMQP protocol
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
